@@ -12,3 +12,5 @@ RoxygenNote: 7.2.3
 Imports: 
     dplyr,
     fixest
+URL: https://github.com/fresej/boundid
+BugReports: https://github.com/fresej/boundid/issues
