@@ -1,5 +1,5 @@
 Package: boundid
-Title: What the Package Does (One Line, Title Case)
+Title: Detect and adjust for boundary bias in difference-in-differences designs.
 Version: 0.0.0.9000
 Authors@R: 
     person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
