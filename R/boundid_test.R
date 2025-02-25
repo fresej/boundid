@@ -8,11 +8,10 @@
 #' @param time The time variable.
 #' @param ID The unit ID.
 #' @param first_period A numeric value indicating the first time period in which the treatment is administered.
-#' @param S = A numeric value indicating the counterfactual fall. If NULL, the function automatically computes the counterfactual fall of the control group.
-#' @param cut A logical statement. If TRUE, then the cutting/trimming approach will be used. If FALSE, then the weighting approach will be used.
+#' @param S A numeric value indicating the counterfactual fall. If NULL, the function automatically computes the counterfactual fall of the control group.
 #' @param more_info A logical statement. If TRUE, then additional information is included in the output, such as the distance of the furthest unit above or below the boundary (or the distance of the 1st percentile)
 #' @param stag A logical statement. Should be TRUE if the design is staggered or FALSE for a basic 2x2 DiD.
-#' @return The output of this function is a vector containing the newly generated weights to be included in the estimation step to counter-act boundary bias.
+#' @return The output of this function is a console output containing information about the extent of boundary bias.
 #' @examples
 #' boundid_test(simulated_data, "X", 0, floor = T, simulated_data$treated, simulated_data$time, more_info = F, ID = "ID")
 #' @export

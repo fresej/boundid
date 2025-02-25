@@ -10,7 +10,7 @@
 #' @param group2_mean A numeric value indicating the pre-treatment mean of the treatment group.
 #' @param ATU A logical statement. TRUE if the ATU is the target estimand.
 #' @param ATT A logical statement. TRUE if the ATT is the target estimand.
-#' @param S = A numeric value indicating the counterfactual fall. If NULL, the function automatically computes the counterfactual fall of the control group.
+#' @param S A numeric value indicating the counterfactual fall. If NULL, the function automatically computes the counterfactual fall of the control group.
 #' @param cut A logical statement. If TRUE, then the cutting/trimming approach will be used. If FALSE, then the weighting approach will be used.
 #' @param panel A logical statement. If TRUE, then the function generates weights for the whole panel. If FALSE, then the function generates weights for two time periods.
 #' @return The output of this function is a vector containing the newly generated weights to be included in the estimation step to counter-act boundary bias.
