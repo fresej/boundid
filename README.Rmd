@@ -2,7 +2,6 @@
 output: github_document
 ---
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
@@ -15,9 +14,6 @@ knitr::opts_chunk$set(
 
 # boundid
 
-<!-- badges: start -->
-<!-- badges: end -->
-
 The goal of boundid is to ...
 
 ## Installation
@@ -25,30 +21,90 @@ The goal of boundid is to ...
 You can install the development version of boundid like so:
 
 ``` r
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
+devtools::install_github("fresej/boundid")
 ```
 
 ## Example
 
-This is a basic example which shows you how to solve a common problem:
+This is a basic example using simulated data to demonstrate how to use the boundid package to estimate boundary bias and adjust for it with the weighting and the trimming approach in a classic 2x2 DiD setup:
 
 ```{r example}
 library(boundid)
-## basic example code
+library(tidyverse)
+library(fixest)
+
+# Data simulation
+set.seed(123)
+n <- 500
+
+time_1 <- data.frame(
+  ID = 1:n,
+  X = rnorm(n, mean = 10, sd = 3)
+)
+
+time_2 <- data.frame(
+  ID = 1:n,
+  X = rnorm(n, mean = 7, sd = 3)
+)
+
+simulated_data_1 <- rbind(
+  cbind(time_1, time = 0),  
+  cbind(time_2, time = 1)  
+)
+
+simulated_data_1$treated <- 0
+
+time_3 <- data.frame(
+  ID = (n+1):(2*n),
+  X = rnorm(n, mean = 6, sd = 3)
+)
+
+time_4 <- data.frame(
+  ID = (n+1):(2*n),
+  X = rnorm(n, mean = 6, sd = 3)
+)
+
+simulated_data_2 <- rbind(
+  cbind(time_3, time = 0), 
+  cbind(time_4, time = 1)  
+)
+
+simulated_data_2$treated <- 1
+
+simulated_data <- rbind(simulated_data_1, simulated_data_2)
+
+simulated_data <- simulated_data %>% 
+  arrange(ID, time)
+
+means <- simulated_data %>%
+  group_by(time, treated) %>%
+  summarise(mean_X = mean(X, na.rm = TRUE))
+
+ggplot(means, aes(x = factor(time), y = mean_X, color = factor(treated))) +
+  geom_point(size = 3) +
+  labs(title = "Mean of X for Time Periods and Treatment Groups",
+       x = "Time Period", y = "Mean of X", color = "Treatment Group") +
+  scale_color_manual(values = c("blue", "red")) +
+  theme_minimal()
+
+# run test
+boundid_test(simulated_data, "X", 0, floor = T, simulated_data$treated, simulated_data$time, more_info = T, ID = "ID")
+
+# create weights
+test_weights <- boundid_adjust(simulated_data, "X", 0, floor = T,treatment = simulated_data$treated, time = simulated_data$time,
+               ID = simulated_data$ID, ATT = T, cut = F, panel = F,orig_ID = simulated_data$ID)
+
+# cut observations
+test_cuts <- boundid_adjust(simulated_data, "X", 0, floor = T,treatment = simulated_data$treated, time = simulated_data$time,
+                       ID = simulated_data$ID, ATT = T, cut = T, panel = F,orig_ID = simulated_data$ID)
+
+
+table(test_weights)
+
+table(test_cuts)
+
+
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
 
-```{r cars}
-summary(cars)
-```
 
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this. You could also use GitHub Actions to re-render `README.Rmd` every time you push. An example workflow can be found here: <https://github.com/r-lib/actions/tree/v1/examples>.
-
-You can also embed plots, for example:
-
-```{r pressure, echo = FALSE}
-plot(pressure)
-```
-
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.
