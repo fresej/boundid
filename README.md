@@ -12,7 +12,7 @@ variable.
 The goal of the **boundid** package is to quantify the bias resulting
 from this parallel trends violation and account for it with various
 trimming- and weighting-based methods. The package is built around two
-complementary functions: **boundid_test**, and **boundid_adjust**.
+complementary functions: **boundid_test** and **boundid_adjust**.
 
 ## Installation
 
