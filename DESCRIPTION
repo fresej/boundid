@@ -1,10 +1,13 @@
 Package: boundid
 Title: Detect and adjust for boundary bias in difference-in-differences designs.
-Version: 0.0.0.9000
+Version: 0.0.0.91
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+    person("Ludwig", "Schulze", , "ludwig.schulze@eui.eu", role = c("aut", "cre"))
+    person("Joris", "Frese", , "joris.frese@eui.eu", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-5871-997X"))
+Description: This packages accompanies the article "Going Through the Roof: Difference-in-Differences Designs in Contexts of Natural Boundaries" 
+             by Ludwig Schulze and Joris Frese. It contains functions to detect and adjust for parallel trend violations in difference-in-differences 
+             estimations due to natural boundaries in the outcome variable. See the README for a more detailed description and a working example.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
