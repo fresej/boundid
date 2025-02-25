@@ -1,7 +1,18 @@
 
 # boundid
 
-The goal of boundid is to …
+The **boundid** package accompanies the paper “Going Through the Roof:
+Difference-in-Differences Designs in Contexts of Natural Boundaries” by
+Ludwig Schulze and Joris Frese. In this paper, we discuss parallel
+trends violations in difference-in-differences estimations where treated
+units are unable to follow the counterfactual control trend
+post-treatment due to natural boundaries to the scale of the outcome
+variable.
+
+The goal of the **boundid** package is to quantify the bias resulting
+from this parallel trends violation and account for it with various
+trimming- and weighting-based methods. The package is built around two
+complementary functions: **boundid_test**, and **boundid_adjust**.
 
 ## Installation
 
@@ -11,11 +22,103 @@ You can install the development version of boundid like so:
 devtools::install_github("fresej/boundid")
 ```
 
+## boundid_test
+
+The **boundid_test** function is used to evaluate (the extent of)
+boundary bias in a difference-in-differences setup. It contains the
+following parameters:
+
+**Data**: An R dataframe.
+
+**X_var**: The outcome variable.
+
+**threshold**: The natural boundary of the outcome.
+
+**floor**: A logical statement. Should be set to TRUE if the boundary is
+a floor, or to FALSE if the boundary is a ceiling. Default is TRUE.
+
+**treatment**: The treatment variable.
+
+**time**: The time variable.
+
+**ID**: The unit ID.
+
+**first_period**: A numeric value indicating the first time period in
+which the treatment is administered.
+
+**S**: A numeric value indicating the counterfactual fall. If NULL, the
+function automatically computes the counterfactual fall of the control
+group.
+
+**more_info**: A logical statement. If TRUE, then additional information
+is included in the output, such as the distance of the furthest unit
+above or below the boundary (or the distance of the 1st percentile):
+
+**stag**: A logical statement. Should be TRUE if the design is staggered
+or FALSE for a basic 2x2 DiD.
+
+The **output** of this function is a console output containing
+information about the extent of boundary bias, including, but not
+limited to, the pre-treatment means of the control and the treatment
+group, the trend of the control group (which is the counterfactual trend
+for the treatment group), the number of observations in the treatment
+group going below the natural boundary if they follow the counterfactual
+trend, the treatment group post-treatment means with and without natural
+boundaries after following the counterfactual trend, and a t-test of the
+difference between those two means.
+
+## boundid_adjust
+
+The **boundid_adjust** function is used to prepare weighting or trimming
+parameters before the DiD estimation step to counteract boundary bias.
+In the weighting approach, these weights take on values between 0 and 1.
+In the trimming approach, these weights take on either the value 0 or
+the value 1. The function contains the following parameters:
+
+**Data**: An R dataframe.
+
+**X_var**: The outcome variable.
+
+**threshold**: The natural boundary of the outcome.
+
+**floor**: A logical statement. Should be set to TRUE if the boundary is
+a floor, or to FALSE if the boundary is a ceiling. Default is TRUE.
+
+**treatment**: The treatment variable.
+
+**time**: The time variable.
+
+**ID**: The unit ID.
+
+**group2_mean**: A numeric value indicating the pre-treatment mean of
+the treatment group.
+
+**ATU**: A logical statement. TRUE if the ATU is the target estimand.
+
+**ATT**: A logical statement. TRUE if the ATT is the target estimand.
+
+**S**: A numeric value indicating the counterfactual fall. If NULL, the
+function automatically computes the counterfactual fall of the control
+group.
+
+**cut**: A logical statement. If TRUE, then the cutting/trimming
+approach will be used. If FALSE, then the weighting approach will be
+used.
+
+**panel**: A logical statement. If TRUE, then the function generates
+weights for the whole panel. If FALSE, then the function generates
+weights for two time periods.
+
+The **output** of this function is a vector containing the newly
+generated weights to be included in the estimation step to counter-act
+boundary bias.
+
 ## Example
 
 This is a basic example using simulated data to demonstrate how to use
-the boundid package to estimate boundary bias and adjust for it with the
-weighting and the trimming approach in a classic 2x2 DiD setup:
+the boundid_test and boundid_adjust functions in the boundid package to
+estimate boundary bias and adjust for it with the weighting and the
+trimming approach in a classic 2x2 DiD setup:
 
 ``` r
 library(boundid)
@@ -105,7 +208,8 @@ ggplot(means, aes(x = factor(time), y = mean_X, color = factor(treated))) +
 ``` r
 
 # run test
-boundid_test(simulated_data, "X", 0, floor = T, simulated_data$treated, simulated_data$time, more_info = T, ID = "ID")
+boundid_test(simulated_data, "X", 0, floor = T, simulated_data$treated, simulated_data$time, 
+             more_info = T, ID = "ID")
 #> Difference between restricted and unrestricted mean:
 #> 
 #> Control Group Pre-Treatment  Mean:  10.10377 
@@ -127,12 +231,14 @@ boundid_test(simulated_data, "X", 0, floor = T, simulated_data$treated, simulate
 #> (1st Percentile) Distance to 0: -3.633893
 
 # create weights
-test_weights <- boundid_adjust(simulated_data, "X", 0, floor = T,treatment = simulated_data$treated, time = simulated_data$time,
-               ID = simulated_data$ID, ATT = T, cut = F, panel = F,orig_ID = simulated_data$ID)
+test_weights <- boundid_adjust(simulated_data, "X", 0, floor = T,treatment = simulated_data$treated, 
+                               time = simulated_data$time, ID = simulated_data$ID, ATT = T, 
+                               cut = F, panel = F,orig_ID = simulated_data$ID)
 
 # cut observations
-test_cuts <- boundid_adjust(simulated_data, "X", 0, floor = T,treatment = simulated_data$treated, time = simulated_data$time,
-                       ID = simulated_data$ID, ATT = T, cut = T, panel = F,orig_ID = simulated_data$ID)
+test_cuts <- boundid_adjust(simulated_data, "X", 0, floor = T,treatment = simulated_data$treated, 
+                            time = simulated_data$time, ID = simulated_data$ID, ATT = T, cut = T, 
+                            panel = F,orig_ID = simulated_data$ID)
 
 
 table(test_weights)
