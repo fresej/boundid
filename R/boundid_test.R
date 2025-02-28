@@ -355,6 +355,7 @@ boundid_test <- function(Data, X_var, threshold, floor = TRUE, treatment, time, 
   cat("degrees of freedom: ", t_test_result$parameter, "\n")
   cat("confidence interval: ", t_test_result$conf.int, "\n")
 
+  return(t_test_result$p.value)
   
   if (more_info) {
     
