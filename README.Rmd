@@ -95,9 +95,11 @@ The **output** of this function is a vector containing the newly generated weigh
 This is a basic example using simulated data to demonstrate how to use the boundid_test and boundid_adjust functions in the boundid package to estimate boundary bias and adjust for it with the weighting and the trimming approach in a classic 2x2 DiD setup:
 
 ```{r example}
-library(boundid)
-library(tidyverse)
-library(fixest)
+suppressWarnings({
+  library(boundid)
+  library(tidyverse)
+  library(fixest)
+})
 
 # Data simulation
 set.seed(123)
@@ -122,12 +124,12 @@ simulated_data_1$treated <- 0
 
 time_3 <- data.frame(
   ID = (n+1):(2*n),
-  X = rnorm(n, mean = 6, sd = 3)
+  X = rnorm(n, mean = 7, sd = 3)
 )
 
 time_4 <- data.frame(
   ID = (n+1):(2*n),
-  X = rnorm(n, mean = 6, sd = 3)
+  X = rnorm(n, mean = 7, sd = 3)
 )
 
 simulated_data_2 <- rbind(
@@ -167,10 +169,53 @@ test_cuts <- boundid_adjust(simulated_data, "X", 0, floor = T,treatment = simula
                             time = simulated_data$time, ID = simulated_data$ID, ATT = T, cut = T, 
                             panel = F,orig_ID = simulated_data$ID)
 
-
+# see weights
 table(test_weights)
 
+# see cuts
 table(test_cuts)
+
+
+# run DiD regressions
+## unadjusted
+biased <- feols(X ~ treated*time|factor(time) + factor(ID)  ,data=simulated_data, cluster = "ID")
+
+##weighted
+weighted <- feols(X ~ treated*time|factor(time) + factor(ID)  ,data=simulated_data, cluster = "ID", weights = test_weights)
+
+## trimmed
+trimmed <- feols(X ~ treated*time|factor(time) + factor(ID)  ,data=simulated_data, cluster = "ID", weights = test_cuts)
+
+
+# plot DiD coefficients
+coef_biased <- coef(biased)["treated:time"]
+coef_weighted <- coef(weighted)["treated:time"]
+coef_trimmed <- coef(trimmed)["treated:time"]
+se_biased <- summary(biased)$coeftable["treated:time", "Std. Error"]
+se_weighted <- summary(weighted)$coeftable["treated:time", "Std. Error"]
+se_trimmed <- summary(trimmed)$coeftable["treated:time", "Std. Error"]
+
+lower_biased <- coef_biased - 1.96 * se_biased
+upper_biased <- coef_biased + 1.96 * se_biased
+lower_weighted <- coef_weighted - 1.96 * se_weighted
+upper_weighted <- coef_weighted + 1.96 * se_weighted
+lower_trimmed <- coef_trimmed - 1.96 * se_trimmed
+upper_trimmed <- coef_trimmed + 1.96 * se_trimmed
+
+results <- data.frame(
+  model = c("Biased (Unadjusted)", "Weighted (boundid)", "Trimmed (boundid)"),
+  estimate = c(coef_biased, coef_weighted, coef_trimmed),
+  lower = c(lower_biased, lower_weighted, lower_trimmed),
+  upper = c(upper_biased, upper_weighted, upper_trimmed)
+)
+
+ggplot(results, aes(x = model, y = estimate, ymin = lower, ymax = upper)) +
+  geom_hline(yintercept = 0, size = 1, color = "red", linetype = "dashed") +
+  geom_pointrange(size = 2, linewidth = 2) +
+  labs(x = "Model", y = "DiD Coefficient", 
+       title = "DiD Coefficients with 95% Confidence Intervals") +
+  theme_minimal(base_size = 25)
+
 
 
 ```
