@@ -95,105 +95,85 @@ The **output** of this function is a vector containing the newly generated weigh
 This is a basic example using simulated data to demonstrate how to use the boundid_test and boundid_adjust functions in the boundid package to estimate boundary bias and adjust for it with the weighting and the trimming approach in a classic 2x2 DiD setup:
 
 ```{r example}
-suppressWarnings({
+invisible(suppressWarnings({
   library(boundid)
   library(tidyverse)
   library(fixest)
-})
+  library(ggpubr)
+  library(truncnorm)
+}))
 
-# Data simulation
+
+# simulate bounded DiD dataset
 set.seed(123)
-n <- 500
+n = 1000
+df <- data.frame(treat = sample(c(1, 0), n, replace = TRUE, prob = c(0.5, 0.5))) %>%
+  mutate(post = 0, id = row_number()) %>%
+  bind_rows(mutate(., post = 1)) %>%
+  group_by(id) %>%
+  mutate(
+    treat_effect = ifelse(treat == 1, -12 + rnorm(1, mean = 0, sd = 2),  
+                          -12 + rnorm(1, mean = 0, sd = 2)),  
+    base_outcome = ifelse(treat == 1, 
+                          rtruncnorm(1, a = 0, mean = 5, sd = 5), 
+                          rtruncnorm(1, a = 0, mean = 15, sd = 5)),
+    outcome = ifelse(post == 0, base_outcome, base_outcome + treat_effect)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    treat_effect = ifelse(post == 0, NA, treat_effect),
+    outcome = pmax(outcome, 0)  # ensures non-negative values
+  ) %>%
+  select(-base_outcome)
 
-time_1 <- data.frame(
-  ID = 1:n,
-  X = rnorm(n, mean = 10, sd = 3)
-)
 
-time_2 <- data.frame(
-  ID = 1:n,
-  X = rnorm(n, mean = 7, sd = 3)
-)
-
-simulated_data_1 <- rbind(
-  cbind(time_1, time = 0),  
-  cbind(time_2, time = 1)  
-)
-
-simulated_data_1$treated <- 0
-
-time_3 <- data.frame(
-  ID = (n+1):(2*n),
-  X = rnorm(n, mean = 7, sd = 3)
-)
-
-time_4 <- data.frame(
-  ID = (n+1):(2*n),
-  X = rnorm(n, mean = 7, sd = 3)
-)
-
-simulated_data_2 <- rbind(
-  cbind(time_3, time = 0), 
-  cbind(time_4, time = 1)  
-)
-
-simulated_data_2$treated <- 1
-
-simulated_data <- rbind(simulated_data_1, simulated_data_2)
-
-simulated_data <- simulated_data %>% 
-  arrange(ID, time)
-
-means <- simulated_data %>%
-  group_by(time, treated) %>%
-  summarise(mean_X = mean(X, na.rm = TRUE))
-
-ggplot(means, aes(x = factor(time), y = mean_X, color = factor(treated))) +
-  geom_point(size = 3) +
+# plot pre- and post-means
+means <- df %>%
+  group_by(post, treat) %>%
+  summarise(mean_X = mean(outcome, na.rm = TRUE))
+ggplot(means, aes(x = factor(post), y = mean_X, color = factor(treat))) +
+  geom_point(size = 4) +
   labs(title = "Mean of X for Time Periods and Treatment Groups",
        x = "Time Period", y = "Mean of X", color = "Treatment Group") +
   scale_color_manual(values = c("blue", "red")) +
-  theme_minimal()
+  theme_classic() +
+  ylim(0,15)
 
-# run test
-boundid_test(simulated_data, "X", 0, floor = T, simulated_data$treated, simulated_data$time, 
-             more_info = T, ID = "ID")
+# boundid_test
+boundid_test(df, "outcome", 0, floor = T, df$treat, df$post, 
+             more_info = T, ID = "id")
 
 # create weights
-test_weights <- boundid_adjust(simulated_data, "X", 0, floor = T,treatment = simulated_data$treated, 
-                               time = simulated_data$time, ID = simulated_data$ID, ATT = T, 
-                               cut = F, panel = F,orig_ID = simulated_data$ID)
-
+test_weights <- boundid_adjust(df, "outcome", 0, floor = T,treatment = df$treat, 
+                               time = df$post, ID = df$id, ATT = T, 
+                               cut = F, panel = F,orig_ID = df$id)
 # cut observations
-test_cuts <- boundid_adjust(simulated_data, "X", 0, floor = T,treatment = simulated_data$treated, 
-                            time = simulated_data$time, ID = simulated_data$ID, ATT = T, cut = T, 
-                            panel = F,orig_ID = simulated_data$ID)
-
-# see weights
-table(test_weights)
-
-# see cuts
-table(test_cuts)
+test_cuts <- boundid_adjust(df, "outcome", 0, floor = T,treatment = df$treat, 
+                            time = df$post, ID = df$id, ATT = T, cut = T, 
+                            panel = F,orig_ID = df$id)
+summary(test_weights)
+summary(test_cuts)
 
 
-# run DiD regressions
+# estimate DiDs
 ## unadjusted
-biased <- feols(X ~ treated*time|factor(time) + factor(ID)  ,data=simulated_data, cluster = "ID")
+biased <- feols(outcome ~ treat*post|factor(post) + factor(id)  ,data=df, cluster = "id")
 
 ##weighted
-weighted <- feols(X ~ treated*time|factor(time) + factor(ID)  ,data=simulated_data, cluster = "ID", weights = test_weights)
+weighted <- feols(outcome ~ treat*post|factor(post) + factor(id)  ,data=df, cluster = "id", 
+                  weights = test_weights)
 
 ## trimmed
-trimmed <- feols(X ~ treated*time|factor(time) + factor(ID)  ,data=simulated_data, cluster = "ID", weights = test_cuts)
-
+trimmed <- feols(outcome ~ treat*post|factor(post) + factor(id)  ,data=df, cluster = "id", 
+                 weights = test_cuts)
 
 # plot DiD coefficients
-coef_biased <- coef(biased)["treated:time"]
-coef_weighted <- coef(weighted)["treated:time"]
-coef_trimmed <- coef(trimmed)["treated:time"]
-se_biased <- summary(biased)$coeftable["treated:time", "Std. Error"]
-se_weighted <- summary(weighted)$coeftable["treated:time", "Std. Error"]
-se_trimmed <- summary(trimmed)$coeftable["treated:time", "Std. Error"]
+coef_biased <- coef(biased)["treat:post"]
+coef_weighted <- coef(weighted)["treat:post"]
+coef_trimmed <- coef(trimmed)["treat:post"]
+se_biased <- summary(biased)$coeftable["treat:post", "Std. Error"]
+se_weighted <- summary(weighted)$coeftable["treat:post", "Std. Error"]
+se_trimmed <- summary(trimmed)$coeftable["treat:post", "Std. Error"]
 
 lower_biased <- coef_biased - 1.96 * se_biased
 upper_biased <- coef_biased + 1.96 * se_biased
@@ -211,10 +191,10 @@ results <- data.frame(
 
 ggplot(results, aes(x = model, y = estimate, ymin = lower, ymax = upper)) +
   geom_hline(yintercept = 0, size = 1, color = "red", linetype = "dashed") +
-  geom_pointrange(size = 2, linewidth = 2) +
+  geom_pointrange(size = 1, linewidth = 1) +
   labs(x = "Model", y = "DiD Coefficient", 
        title = "DiD Coefficients with 95% Confidence Intervals") +
-  theme_minimal(base_size = 25)
+  theme_minimal()
 
 
 

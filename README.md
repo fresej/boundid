@@ -121,18 +121,13 @@ estimate boundary bias and adjust for it with the weighting and the
 trimming approach in a classic 2x2 DiD setup:
 
 ``` r
-library(boundid)
-library(tidyverse)
-#> Warning: Paket 'tidyverse' wurde unter R Version 4.2.3 erstellt
-#> Warning: Paket 'ggplot2' wurde unter R Version 4.2.3 erstellt
-#> Warning: Paket 'tibble' wurde unter R Version 4.2.3 erstellt
-#> Warning: Paket 'tidyr' wurde unter R Version 4.2.3 erstellt
-#> Warning: Paket 'readr' wurde unter R Version 4.2.3 erstellt
-#> Warning: Paket 'purrr' wurde unter R Version 4.2.3 erstellt
-#> Warning: Paket 'dplyr' wurde unter R Version 4.2.3 erstellt
-#> Warning: Paket 'stringr' wurde unter R Version 4.2.3 erstellt
-#> Warning: Paket 'forcats' wurde unter R Version 4.2.3 erstellt
-#> Warning: Paket 'lubridate' wurde unter R Version 4.2.3 erstellt
+invisible(suppressWarnings({
+  library(boundid)
+  library(tidyverse)
+  library(fixest)
+  library(ggpubr)
+  library(truncnorm)
+}))
 #> ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
 #> ✔ dplyr     1.1.1     ✔ readr     2.1.5
 #> ✔ forcats   1.0.0     ✔ stringr   1.5.0
@@ -143,247 +138,136 @@ library(tidyverse)
 #> ✖ dplyr::filter() masks stats::filter()
 #> ✖ dplyr::lag()    masks stats::lag()
 #> ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
-library(fixest)
-#> Warning: Paket 'fixest' wurde unter R Version 4.2.3 erstellt
 
-# Data simulation
+
+# simulate bounded DiD dataset
 set.seed(123)
-n <- 500
+n = 1000
+df <- data.frame(treat = sample(c(1, 0), n, replace = TRUE, prob = c(0.5, 0.5))) %>%
+  mutate(post = 0, id = row_number()) %>%
+  bind_rows(mutate(., post = 1)) %>%
+  group_by(id) %>%
+  mutate(
+    treat_effect = ifelse(treat == 1, -12 + rnorm(1, mean = 0, sd = 2),  
+                          -12 + rnorm(1, mean = 0, sd = 2)),  
+    base_outcome = ifelse(treat == 1, 
+                          rtruncnorm(1, a = 0, mean = 5, sd = 5), 
+                          rtruncnorm(1, a = 0, mean = 15, sd = 5)),
+    outcome = ifelse(post == 0, base_outcome, base_outcome + treat_effect)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    treat_effect = ifelse(post == 0, NA, treat_effect),
+    outcome = pmax(outcome, 0)  # ensures non-negative values
+  ) %>%
+  select(-base_outcome)
 
-time_1 <- data.frame(
-  ID = 1:n,
-  X = rnorm(n, mean = 10, sd = 3)
-)
 
-time_2 <- data.frame(
-  ID = 1:n,
-  X = rnorm(n, mean = 7, sd = 3)
-)
-
-simulated_data_1 <- rbind(
-  cbind(time_1, time = 0),  
-  cbind(time_2, time = 1)  
-)
-
-simulated_data_1$treated <- 0
-
-time_3 <- data.frame(
-  ID = (n+1):(2*n),
-  X = rnorm(n, mean = 6, sd = 3)
-)
-
-time_4 <- data.frame(
-  ID = (n+1):(2*n),
-  X = rnorm(n, mean = 6, sd = 3)
-)
-
-simulated_data_2 <- rbind(
-  cbind(time_3, time = 0), 
-  cbind(time_4, time = 1)  
-)
-
-simulated_data_2$treated <- 1
-
-simulated_data <- rbind(simulated_data_1, simulated_data_2)
-
-simulated_data <- simulated_data %>% 
-  arrange(ID, time)
-
-means <- simulated_data %>%
-  group_by(time, treated) %>%
-  summarise(mean_X = mean(X, na.rm = TRUE))
-#> `summarise()` has grouped output by 'time'. You can override using the
+# plot pre- and post-means
+means <- df %>%
+  group_by(post, treat) %>%
+  summarise(mean_X = mean(outcome, na.rm = TRUE))
+#> `summarise()` has grouped output by 'post'. You can override using the
 #> `.groups` argument.
-
-ggplot(means, aes(x = factor(time), y = mean_X, color = factor(treated))) +
-  geom_point(size = 3) +
+ggplot(means, aes(x = factor(post), y = mean_X, color = factor(treat))) +
+  geom_point(size = 4) +
   labs(title = "Mean of X for Time Periods and Treatment Groups",
        x = "Time Period", y = "Mean of X", color = "Treatment Group") +
   scale_color_manual(values = c("blue", "red")) +
-  theme_minimal()
+  theme_classic() +
+  ylim(0,15)
 ```
 
 <img src="man/figures/README-example-1.png" width="100%" />
 
 ``` r
 
-# run test
-boundid_test(simulated_data, "X", 0, floor = T, simulated_data$treated, simulated_data$time, 
-             more_info = T, ID = "ID")
+# boundid_test
+boundid_test(df, "outcome", 0, floor = T, df$treat, df$post, 
+             more_info = T, ID = "id")
 #> Difference between restricted and unrestricted mean:
 #> 
-#> Control Group Pre-Treatment  Mean:  10.10377 
-#> Treatment Group Pre-Treatment  Mean:  6.078602 
-#> Counterfactual Trend:  -3.110775 
+#> Control Group Pre-Treatment  Mean:  14.94954 
+#> Treatment Group Pre-Treatment  Mean:  6.384563 
+#> Counterfactual Trend:  -10.9861 
 #> 
-#> Values below boundary: 84 
-#> Counterfactual Mean with boundary:  3.219379 
-#> Counterfactual Mean without boundary:  2.967827 
-#> Absolute Difference:  0.2515519 
+#> Values below boundary: 430 
+#> Counterfactual Mean with boundary:  0.2579151 
+#> Counterfactual Mean without boundary:  -4.601539 
+#> Absolute Difference:  4.859454 
 #> 
 #> Two Sample t-test Results:
-#> p-value:  0.1539285 
-#> t-statistic:  -1.426876 
-#> degrees of freedom:  998 
-#> confidence interval:  -0.5975044 0.09440066 
-#> 
-#> Full Distance to 0: -5.196764 
-#> (1st Percentile) Distance to 0: -3.633893
+#> p-value:  1.68066e-126 
+#> t-statistic:  -27.87427 
+#> degrees of freedom:  984 
+#> confidence interval:  -5.201565 -4.517343
+#> [1] 1.68066e-126
 
 # create weights
-test_weights <- boundid_adjust(simulated_data, "X", 0, floor = T,treatment = simulated_data$treated, 
-                               time = simulated_data$time, ID = simulated_data$ID, ATT = T, 
-                               cut = F, panel = F,orig_ID = simulated_data$ID)
-
+test_weights <- boundid_adjust(df, "outcome", 0, floor = T,treatment = df$treat, 
+                               time = df$post, ID = df$id, ATT = T, 
+                               cut = F, panel = F,orig_ID = df$id)
 # cut observations
-test_cuts <- boundid_adjust(simulated_data, "X", 0, floor = T,treatment = simulated_data$treated, 
-                            time = simulated_data$time, ID = simulated_data$ID, ATT = T, cut = T, 
-                            panel = F,orig_ID = simulated_data$ID)
+test_cuts <- boundid_adjust(df, "outcome", 0, floor = T,treatment = df$treat, 
+                            time = df$post, ID = df$id, ATT = T, cut = T, 
+                            panel = F,orig_ID = df$id)
+summary(test_weights)
+#>      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+#> 0.0000034 0.0000034 0.0241736 0.4940000 1.0000000 1.0000000
+summary(test_cuts)
+#>    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#>   0.000   0.000   1.000   0.546   1.000   1.000
 
 
-table(test_weights)
-#> test_weights
-#> 2.71495953072795e-06 6.49144543584053e-06 1.71355977827756e-05 
-#>                  590                    2                    2 
-#> 5.63006747188558e-05 7.04793068267914e-05 8.89591194538106e-05 
-#>                    2                    2                    2 
-#>  0.00012989141858235 0.000134184184669009 0.000156952050092376 
-#>                    2                    2                    2 
-#> 0.000211354169893024   0.0002810238297593  0.00032627274219875 
-#>                    2                    2                    2 
-#> 0.000348118397779973  0.00035187278947451 0.000461144595513691 
-#>                    2                    2                    2 
-#> 0.000469199175571553 0.000493589354173754 0.000569915670667738 
-#>                    2                    2                    2 
-#> 0.000570555408161083 0.000650634769792425 0.000789400597475051 
-#>                    2                    2                    2 
-#> 0.000798632808772512 0.000800206304360778 0.000852556794245024 
-#>                    2                    2                    2 
-#> 0.000931931979049076 0.000958801078956657 0.000965692583611099 
-#>                    2                    2                    2 
-#> 0.000974422782314986 0.000975192467441748 0.000992181050112217 
-#>                    2                    2                    2 
-#>  0.00101067955415247  0.00107823384880945  0.00113013404752009 
-#>                    2                    2                    2 
-#>    0.001143316917403  0.00115919292928067  0.00116676750286313 
-#>                    2                    2                    2 
-#>  0.00120103529847356  0.00120284724716758   0.0012064472575353 
-#>                    2                    2                    2 
-#>  0.00126442770948869  0.00127854731068519  0.00136896555588434 
-#>                    2                    2                    2 
-#>  0.00144894720078791  0.00145386419037244  0.00147252347569993 
-#>                    2                    2                    2 
-#>  0.00151431827563201  0.00154976305032799  0.00161176833132516 
-#>                    2                    2                    2 
-#>  0.00162298968882851  0.00165266266513242  0.00168600480869133 
-#>                    2                    2                    2 
-#>  0.00169263985345939  0.00172066544750188  0.00178015474567695 
-#>                    2                    2                    2 
-#>  0.00179996551352917  0.00182182107611895  0.00184159556214169 
-#>                    2                    2                    2 
-#>  0.00188707242716102   0.0019126824863269  0.00196851812151295 
-#>                    2                    2                    2 
-#>  0.00197746348806301   0.0020136523813592  0.00201874395618817 
-#>                    2                    2                    2 
-#>  0.00202225491047344  0.00208347953673407  0.00210502231547456 
-#>                    2                    2                    2 
-#>  0.00210594677741766  0.00220778246899209   0.0022452359738901 
-#>                    2                    2                    2 
-#>  0.00225853990664152  0.00231778786776027  0.00237635762495245 
-#>                    2                    2                    2 
-#>  0.00249841769506812  0.00250258871945268  0.00253693702642729 
-#>                    2                    2                    2 
-#>  0.00254731832620683  0.00262123754977863  0.00263391265294404 
-#>                    2                    2                    2 
-#>  0.00263697511471537  0.00264005241279082  0.00264009586216432 
-#>                    2                    2                    2 
-#>  0.00264715457447771  0.00266287447813456  0.00275190812769978 
-#>                    2                    2                    2 
-#>  0.00278997486971287  0.00283179246266893  0.00284103539768171 
-#>                    2                    2                    2 
-#>  0.00291262383761475  0.00301544504938656  0.00303669216507795 
-#>                    2                    2                    2 
-#>  0.00308740249134502  0.00313155782168961  0.00316422697314817 
-#>                    2                    2                    2 
-#>   0.0031785434212044  0.00321489102216676  0.00330990195201842 
-#>                    2                    2                    2 
-#>  0.00347357139687957  0.00348213725169483  0.00353178162023049 
-#>                    2                    2                    2 
-#>  0.00360507673083705  0.00363920111814418   0.0036481378148347 
-#>                    2                    2                    2 
-#>  0.00368397664528963  0.00369862141772898  0.00370787131115268 
-#>                    2                    2                    2 
-#>  0.00373112996664381   0.0037419619728725  0.00378513540814867 
-#>                    2                    2                    2 
-#>  0.00385655536214562  0.00387736952704539  0.00396151041375353 
-#>                    2                    2                    2 
-#>  0.00412052952539644   0.0041753114517435  0.00420027297944712 
-#>                    2                    2                    2 
-#>  0.00422768313601275   0.0042278249381254  0.00453062319392294 
-#>                    2                    2                    2 
-#>   0.0046805319896445  0.00479769552450723  0.00485371204770283 
-#>                    2                    2                    2 
-#>  0.00500295259375993  0.00501893004096099  0.00533892060036265 
-#>                    2                    2                    2 
-#>  0.00538983799181464  0.00540514837401075  0.00543586094501845 
-#>                    2                    2                    2 
-#>  0.00551173954513394  0.00560181013466659  0.00573890335120948 
-#>                    2                    2                    2 
-#>  0.00577057672877206  0.00583620867403858  0.00585651854615387 
-#>                    2                    2                    2 
-#>  0.00590999912288533  0.00593210593576882   0.0059732645632835 
-#>                    2                    2                    2 
-#>  0.00598716584788842  0.00599025234850053  0.00615890737835928 
-#>                    2                    2                    2 
-#>  0.00618363389169459  0.00620219032860281  0.00626377248318839 
-#>                    2                    2                    2 
-#>  0.00629710587207454   0.0063265108276827  0.00636823286459056 
-#>                    2                    2                    2 
-#>  0.00646140343369304  0.00648212084359269   0.0065059045155565 
-#>                    2                    2                    2 
-#>   0.0067068452399442  0.00679933890859759  0.00681205060497857 
-#>                    2                    2                    2 
-#>  0.00681822666125493  0.00704438230037967  0.00716910654549525 
-#>                    2                    2                    2 
-#>  0.00719099950996267  0.00743026735482652  0.00754555498520742 
-#>                    2                    2                    2 
-#>  0.00758091766432187  0.00765671323984218  0.00771138925035853 
-#>                    2                    2                    2 
-#>  0.00772255541745228  0.00772646593381995  0.00775891576169248 
-#>                    2                    2                    2 
-#>  0.00776139945298361  0.00790458339747139  0.00792173900578817 
-#>                    2                    2                    2 
-#>  0.00809791626208234  0.00814397525721726  0.00818796188123449 
-#>                    2                    2                    2 
-#>  0.00830523405047325  0.00839512269089385  0.00844830979867981 
-#>                    2                    2                    2 
-#>  0.00846136608263944  0.00849246994023973  0.00872397966577543 
-#>                    2                    2                    2 
-#>   0.0090443923025545  0.00908431402768478  0.00920843238768564 
-#>                    2                    2                    2 
-#>  0.00921669992922493  0.00960885342069904  0.00974399581435424 
-#>                    2                    2                    2 
-#>   0.0098614727386198   0.0100348358620076   0.0102526723836975 
-#>                    2                    2                    2 
-#>   0.0103738233960223   0.0105109091428564   0.0106159087505994 
-#>                    2                    2                    2 
-#>   0.0106196318948072   0.0107413733525321   0.0107448332911515 
-#>                    2                    2                    2 
-#>   0.0108838075747485   0.0111805391966778   0.0113769933726338 
-#>                    2                    2                    2 
-#>   0.0114013772097831   0.0116515410608233   0.0129584403737895 
-#>                    2                    2                    2 
-#>   0.0131521106147396   0.0133111745486377   0.0135928997838045 
-#>                    2                    2                    2 
-#>   0.0135937458973217   0.0136004920487631   0.0143742375806338 
-#>                    2                    2                    2 
-#>   0.0148733325996065     0.01549723455716    0.016658821141094 
-#>                    2                    2                    2 
-#>   0.0179725007090538   0.0181042301259881                    1 
-#>                    2                    2                 1000
+# estimate DiDs
+## unadjusted
+biased <- feols(outcome ~ treat*post|factor(post) + factor(id)  ,data=df, cluster = "id")
+#> The variables 'treat' and 'post' have been removed because of collinearity (see $collin.var).
 
-table(test_cuts)
-#> test_cuts
-#>    0    1 
-#>  800 1200
+##weighted
+weighted <- feols(outcome ~ treat*post|factor(post) + factor(id)  ,data=df, cluster = "id", 
+                  weights = test_weights)
+#> The variables 'treat' and 'post' have been removed because of collinearity (see $collin.var).
+
+## trimmed
+trimmed <- feols(outcome ~ treat*post|factor(post) + factor(id)  ,data=df, cluster = "id", 
+                 weights = test_cuts)
+#> NOTE: 908 observations removed because of 0-weight.
+#> The variables 'treat' and 'post' have been removed because of collinearity (see $collin.var).
+
+# plot DiD coefficients
+coef_biased <- coef(biased)["treat:post"]
+coef_weighted <- coef(weighted)["treat:post"]
+coef_trimmed <- coef(trimmed)["treat:post"]
+se_biased <- summary(biased)$coeftable["treat:post", "Std. Error"]
+se_weighted <- summary(weighted)$coeftable["treat:post", "Std. Error"]
+se_trimmed <- summary(trimmed)$coeftable["treat:post", "Std. Error"]
+
+lower_biased <- coef_biased - 1.96 * se_biased
+upper_biased <- coef_biased + 1.96 * se_biased
+lower_weighted <- coef_weighted - 1.96 * se_weighted
+upper_weighted <- coef_weighted + 1.96 * se_weighted
+lower_trimmed <- coef_trimmed - 1.96 * se_trimmed
+upper_trimmed <- coef_trimmed + 1.96 * se_trimmed
+
+results <- data.frame(
+  model = c("Biased (Unadjusted)", "Weighted (boundid)", "Trimmed (boundid)"),
+  estimate = c(coef_biased, coef_weighted, coef_trimmed),
+  lower = c(lower_biased, lower_weighted, lower_trimmed),
+  upper = c(upper_biased, upper_weighted, upper_trimmed)
+)
+
+ggplot(results, aes(x = model, y = estimate, ymin = lower, ymax = upper)) +
+  geom_hline(yintercept = 0, size = 1, color = "red", linetype = "dashed") +
+  geom_pointrange(size = 1, linewidth = 1) +
+  labs(x = "Model", y = "DiD Coefficient", 
+       title = "DiD Coefficients with 95% Confidence Intervals") +
+  theme_minimal()
+#> Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+#> ℹ Please use `linewidth` instead.
+#> This warning is displayed once every 8 hours.
+#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+#> generated.
 ```
+
+<img src="man/figures/README-example-2.png" width="100%" />
