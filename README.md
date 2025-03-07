@@ -128,16 +128,6 @@ invisible(suppressWarnings({
   library(ggpubr)
   library(truncnorm)
 }))
-#> ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
-#> ✔ dplyr     1.1.1     ✔ readr     2.1.5
-#> ✔ forcats   1.0.0     ✔ stringr   1.5.0
-#> ✔ ggplot2   3.5.0     ✔ tibble    3.2.1
-#> ✔ lubridate 1.9.3     ✔ tidyr     1.3.0
-#> ✔ purrr     1.0.1     
-#> ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-#> ✖ dplyr::filter() masks stats::filter()
-#> ✖ dplyr::lag()    masks stats::lag()
-#> ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
 
 
 # simulate bounded DiD dataset
@@ -167,8 +157,6 @@ df <- data.frame(treat = sample(c(1, 0), n, replace = TRUE, prob = c(0.5, 0.5)))
 means <- df %>%
   group_by(post, treat) %>%
   summarise(mean_X = mean(outcome, na.rm = TRUE))
-#> `summarise()` has grouped output by 'post'. You can override using the
-#> `.groups` argument.
 ggplot(means, aes(x = factor(post), y = mean_X, color = factor(treat))) +
   geom_point(size = 4) +
   labs(title = "Mean of X for Time Periods and Treatment Groups",
@@ -222,18 +210,16 @@ summary(test_cuts)
 # estimate DiDs
 ## unadjusted
 biased <- feols(outcome ~ treat*post|factor(post) + factor(id)  ,data=df, cluster = "id")
-#> The variables 'treat' and 'post' have been removed because of collinearity (see $collin.var).
 
 ##weighted
 weighted <- feols(outcome ~ treat*post|factor(post) + factor(id)  ,data=df, cluster = "id", 
                   weights = test_weights)
-#> The variables 'treat' and 'post' have been removed because of collinearity (see $collin.var).
 
 ## trimmed
 trimmed <- feols(outcome ~ treat*post|factor(post) + factor(id)  ,data=df, cluster = "id", 
                  weights = test_cuts)
 #> NOTE: 908 observations removed because of 0-weight.
-#> The variables 'treat' and 'post' have been removed because of collinearity (see $collin.var).
+
 
 # plot DiD coefficients
 coef_biased <- coef(biased)["treat:post"]
@@ -263,11 +249,7 @@ ggplot(results, aes(x = model, y = estimate, ymin = lower, ymax = upper)) +
   labs(x = "Model", y = "DiD Coefficient", 
        title = "DiD Coefficients with 95% Confidence Intervals") +
   theme_minimal()
-#> Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
-#> ℹ Please use `linewidth` instead.
-#> This warning is displayed once every 8 hours.
-#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-#> generated.
+
 ```
 
 <img src="man/figures/README-example-2.png" width="100%" />
