@@ -1,5 +1,5 @@
 Package: boundid
-Title: Detect and adjust for boundary bias in difference-in-differences designs.
+Title: Test and adjust for boundary bias in difference-in-differences designs.
 Version: 0.0.0.91
 Authors@R: 
     person("Ludwig", "Schulze", , "ludwig.schulze@eui.eu", role = c("aut", "cre"))
