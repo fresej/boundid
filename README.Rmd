@@ -14,14 +14,14 @@ knitr::opts_chunk$set(
 
 # boundid
 
-The **boundid** package accompanies the paper "Going Through the Roof: Difference-in-Differences Designs in Contexts of Natural Boundaries" by Ludwig Schulze and Joris Frese. In this paper, we discuss parallel trends violations in difference-in-differences estimations where treated units are unable to follow the counterfactual control trend post-treatment due to natural boundaries to the scale of the outcome variable.
+The **boundid** R package accompanies the paper "Going Through the Roof: Difference-in-Differences Designs in Contexts of Natural Boundaries" by Ludwig Schulze and Joris Frese. In this paper, we discuss parallel trends violations in difference-in-differences estimations where treated units are unable to follow the counterfactual control trend post-treatment due to natural boundaries to the scale of the outcome variable.
 
-The goal of the **boundid** package is to quantify the bias resulting from this parallel trends violation and account for it with various trimming- and weighting-based methods. The package is built around two complementary functions: **boundid_test** and **boundid_adjust**.
+The goal of the **boundid** R package is to quantify the bias resulting from this parallel trends violation and account for it with various trimming- and weighting-based methods. The package is built around two complementary functions: **boundid_test** and **boundid_adjust**.
 
 
 ## Installation
 
-You can install the development version of boundid like so:
+You can install the development version of boundid in R like so:
 
 ``` r
 devtools::install_github("fresej/boundid")
