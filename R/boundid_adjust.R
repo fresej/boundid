@@ -13,6 +13,8 @@
 #' @param S A numeric value indicating the counterfactual fall. If NULL, the function automatically computes the counterfactual fall of the control group.
 #' @param cut A logical statement. If TRUE, then the cutting/trimming approach will be used. If FALSE, then the weighting approach will be used.
 #' @param panel A logical statement. If TRUE, then the function generates weights for the whole panel. If FALSE, then the function generates weights for two time periods.
+#' @import dplyr
+#' @import fixest
 #' @return The output of this function is a vector containing the newly generated weights to be included in the estimation step to counter-act boundary bias.
 #' @examples
 #' new_ATT_weights <- boundid_adjust(simulated_data, "X", 0, floor = T,

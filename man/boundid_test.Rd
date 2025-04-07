@@ -12,6 +12,7 @@ boundid_test(
   treatment,
   time,
   ID,
+  t,
   first_period,
   S = NULL,
   more_info = F,
@@ -35,16 +36,14 @@ boundid_test(
 
 \item{first_period}{A numeric value indicating the first time period in which the treatment is administered.}
 
-\item{S}{= A numeric value indicating the counterfactual fall. If NULL, the function automatically computes the counterfactual fall of the control group.}
+\item{S}{A numeric value indicating the counterfactual fall. If NULL, the function automatically computes the counterfactual fall of the control group.}
 
 \item{more_info}{A logical statement. If TRUE, then additional information is included in the output, such as the distance of the furthest unit above or below the boundary (or the distance of the 1st percentile)}
 
 \item{stag}{A logical statement. Should be TRUE if the design is staggered or FALSE for a basic 2x2 DiD.}
-
-\item{cut}{A logical statement. If TRUE, then the cutting/trimming approach will be used. If FALSE, then the weighting approach will be used.}
 }
 \value{
-The output of this function is a vector containing the newly generated weights to be included in the estimation step to counter-act boundary bias.
+The output of this function is a console output containing information about the extent of boundary bias.
 }
 \description{
 Evaluate (the extent of) boundary bias in a difference-in-differences setup

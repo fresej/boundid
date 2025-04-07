@@ -42,7 +42,7 @@ boundid_adjust(
 
 \item{ATT}{A logical statement. TRUE if the ATT is the target estimand.}
 
-\item{S}{= A numeric value indicating the counterfactual fall. If NULL, the function automatically computes the counterfactual fall of the control group.}
+\item{S}{A numeric value indicating the counterfactual fall. If NULL, the function automatically computes the counterfactual fall of the control group.}
 
 \item{cut}{A logical statement. If TRUE, then the cutting/trimming approach will be used. If FALSE, then the weighting approach will be used.}
 
