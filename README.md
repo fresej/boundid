@@ -14,7 +14,7 @@ from this parallel trends violation and account for it with various
 trimming- and weighting-based methods. The package is built around two
 complementary functions: **boundid_test** and **boundid_adjust**.
 
-Note: Both the working paper and the development of the package are currently dormant. If you plan to use the package, please keep in mind that this is a beta version without active support at the moment.
+**Note: Both the working paper and the development of the package are currently dormant. If you plan to use the package, please keep in mind that this is a beta version without active support at the moment.**
 
 ## Installation
 
