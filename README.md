@@ -7,12 +7,14 @@ Ludwig Schulze and Joris Frese. In this paper, we discuss parallel
 trends violations in difference-in-differences estimations where treated
 units are unable to follow the counterfactual control trend
 post-treatment due to natural boundaries to the scale of the outcome
-variable.
+variable. 
 
 The goal of the **boundid** R package is to quantify the bias resulting
 from this parallel trends violation and account for it with various
 trimming- and weighting-based methods. The package is built around two
 complementary functions: **boundid_test** and **boundid_adjust**.
+
+Note: Both the working paper and the development of the package are currently dormant. If you plan to use the package, please keep in mind that this is a beta version without active support at the moment.
 
 ## Installation
 
